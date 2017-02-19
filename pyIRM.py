@@ -4,6 +4,9 @@
 this is for IRM decompose, based on log gaussian,
 
 this is based on python3
+
+author: Jiabo Liu
+GFZ Potsdam
 '''
 
 import sys
