@@ -1,4 +1,6 @@
-# this is for rock magnetic irm acquisition curves decompose
+# pyIRM
+this is for rock magnetic irm acquisition curves decompose
+
 it is writing in python3, 
 
 with interface writing in pyQt5
