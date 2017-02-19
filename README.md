@@ -1,9 +1,9 @@
 # pyIRM
 this is for rock magnetic irm acquisition curves decompose
 
-it is writing in python3, 
+it was wrote in python3, 
 
-with interface writing in pyQt5
+with interface wrote in pyQt5
 
 the package list:
 
