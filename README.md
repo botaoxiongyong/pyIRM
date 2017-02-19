@@ -34,4 +34,8 @@ open the terminal
      cd /home/Documents/ (if you put the pyIRM.py file in /home/Documents/)
      python3 pyIRM.py
      
-ps: if you save the fig and data, they will be save in the path where you open your measured IRM data.
+ps: 
+
+if you save the fig and data, they will be save in the path where you open your measured IRM data.
+
+the initial value play a key role in fitting, so if the fit result is not promising, just try fit more times or change the component numbers.
