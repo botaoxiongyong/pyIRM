@@ -29,7 +29,7 @@ on Linux
     
 open the terminal
 
-     cd /home/Documents/ (if you put the pyIRM file in /home/Documents/)
+     cd /home/Documents/ (if you put the pyIRM.py file in /home/Documents/)
      python3 pyIRM.py
      
 ps: if you save the fig and data, they will be save in the path where you open your measured IRM data.
