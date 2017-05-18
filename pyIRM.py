@@ -11,6 +11,8 @@ GFZ Potsdam
 
 import sys
 import os
+import pandas as pd
+import codecs
 import matplotlib
 matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore
@@ -24,13 +26,14 @@ from scipy import interpolate
 import numpy as np
 from sklearn.mixture import GaussianMixture as GMM
 from lmfit.models import GaussianModel
-from lmfit import minimize
+from lmfit import minimize,Parameters
 
 
 class MyMplCanvas(FigureCanvas):
-    def __init__(self,parent=None,width=5,hight=4,dpi=100,filePath=None,groups=None):
+    def __init__(self,parent=None,width=5,hight=4,dpi=100,filePath=None,groups=None,paramDict=None):
         self.filePath=filePath
         self.groups=groups
+        self.paramDict=paramDict
         plt.ioff()
         self.fig = plt.figure(figsize=(width,hight),dpi=dpi,facecolor='white')
         self.fig.subplots_adjust(left=0.18, right=0.97,
@@ -54,17 +57,15 @@ class dataFit():
     this is the main part for data fitting
 
     '''
-    def __init__(self,filePath,fitNumbers):
+    def __init__(self,filePath,fitNumber):
         self.filePath=filePath
-        self.fitNumbers=fitNumbers
-
-    def fit(self):
+        self.fitNumber=fitNumber
         self.raw_data()
         self.rand_data()
         self.loggausfit()
         self.lmfit_result()
 
-        return self.params,self.x_fit,self.y_gradient,self.y_fit,self.x_measure,self.y_measure
+        #return self.params,self.x_fit,self.y_gradient,self.y_fit,self.x_measure,self.y_measure
 
     def raw_data(self):
         '''
@@ -75,23 +76,30 @@ class dataFit():
         Be aware that x_fit using log10 scale for easy fitting,
         and will changed to linear scale for plotting.
         '''
-        with open(self.filePath) as f:
-            data = [[line.split(',')[0],line.split(',')[1]]
+        '''
+        with codecs.open(self.filePath,encoding='utf-8',errors='ignore') as f:
+            data = [[float(line.split(',')[0].strip()),float(line.split(',')[1])]
                     for line in f.readlines()
                     if len(line.split(','))==2 and float(line.split(',')[0])]
-        self.y_measure = [float(i[1].strip()) for i in data if float(i[0])>=0.001]
+        data=sorted(data)
+        self.y_measure = [float(i[1]) for i in data if float(i[0])>=0.001]
         self.x_measure = [float(i[0])*10**3 for i in data if float(i[0])>=0.001]
-
-        y_gradient_init = []
-        for i in np.gradient(self.y_measure):
+        '''
+        rawdata=pd.read_csv(self.filePath,sep='\s+',delimiter=',',header=0,dtype=np.float64)
+        y_measure=rawdata.remanance
+        x_measure=rawdata.field*10**3
+        self.x_measure=[i for i in x_measure if i >=2]
+        self.y_measure=[y_measure[i] for i in range(len(x_measure)) if x_measure[i]>=2]
+        self.x_fit = np.linspace(np.log10(self.x_measure).min(), np.log10(self.x_measure).max(), 100)
+        y_gradient_init = interpolate.splev(self.x_fit, interpolate.splrep(np.log10(self.x_measure), np.gradient(self.y_measure)))
+        y_gradient=[]
+        for i in y_gradient_init:
             if i >0:
-                y_gradient_init.append(i)
+                y_gradient.append(i)
             else:
-                y_gradient_init.append(10**-11)
-
-        self.x_fit = np.linspace(np.log10(self.x_measure).min(), np.log10(self.x_measure).max(), 200)
-        self.y_gradient = interpolate.splev(self.x_fit, interpolate.splrep(np.log10(self.x_measure), y_gradient_init))
-
+                #print(i)
+                y_gradient.append(10**-15)
+        self.y_gradient = np.array(y_gradient)
     def rand_data(self):
         '''
         the IRM gradient curve can be regarded as frequency distribution,
@@ -101,19 +109,17 @@ class dataFit():
         tup_data={}
         for i in range(len(self.x_fit)):
             tup_data[str(self.x_fit[i])]=self.y_gradient[i]/sum(self.y_gradient)*100
-        #print tup_data
+        #print(tup_data)
         rand = Lea.fromValFreqsDict(tup_data)
-        self.data_1D =np.array([[i] for i in rand.random(500)],dtype=np.float)
-
+        self.data_1D =np.array([[i] for i in rand.random(100)],dtype=np.float)
     def loggausfit(self):
         '''
         import sklearn GMM model, to evaluate the initial value for fitting,
         and then import lmfit to iterate and get the parameters of the best
         fit.
         '''
-        N = np.arange(self.fitNumbers, self.fitNumbers+1)
+        N = np.arange(self.fitNumber, self.fitNumber+1)
         models = [None for i in range(len(N))]
-
         for i in range(len(N)):
             models[i] = GMM(N[i]).fit(self.data_1D)
         # compute the AIC and the BIC
@@ -124,11 +130,10 @@ class dataFit():
         pdf = np.exp(logprob)
         self.pdf_individual = responsibilities * pdf[:, np.newaxis]
         self.y_fit = (pdf.max())*(self.y_gradient/(self.y_gradient.max()))
-
     def lmfit_result(self):
-        for i in np.arange(self.fitNumbers):
+        for i in np.arange(self.fitNumber):
             sequence = 'g'+str(i+1)+'_'
-            if i ==0:
+            if i==0:
                 gauss = GaussianModel(prefix=sequence)
                 pars = gauss.guess(self.pdf_individual[:,i], x = self.x_fit)
                 center_value = pars[sequence+'center'].value
@@ -143,18 +148,14 @@ class dataFit():
                 sigma_value = pars[sequence+'sigma'].value
                 pars[sequence+'sigma'].set(sigma_value, min=sigma_value-0.2, max=sigma_value+0.2)
         params = pars
-
         result = minimize(self.residuals, params, args=(self.x_fit, self.y_fit), method='cg')
         self.params = result.params
-        #report_fit(result)
-
     def residuals(self,params, x, y):
         y_component = self.func(x, params)
         return y - sum(y_component)
-
     def func(self,x,params):
         y_component=[]
-        for i in np.arange(self.fitNumbers):
+        for i in np.arange(self.fitNumber):
             A = 'g'+str(i+1)+'_amplitude'
             s = 'g'+str(i+1)+'_sigma'
             c = 'g'+str(i+1)+'_center'
@@ -164,7 +165,32 @@ class dataFit():
             y = A/(s*np.sqrt(2*np.pi))*np.exp(-(x-c)**2/(2*s**2))
             y_component.append(y)
         return y_component
-
+class reFit(MyMplCanvas):
+    def initialplot(self):
+        self.fitNumber=int(self.groups)
+        dataFit.raw_data(self)
+        dataFit.rand_data(self)
+        dataFit.loggausfit(self)
+        self.replot()
+    def replot(self):
+        params = Parameters()
+        for key,value in self.paramDict.items():
+            params.add(key, value=float(value.text()))
+        for i in np.arange(self.fitNumber):
+            sequence = 'g'+str(i+1)+'_'
+            center_value = params[sequence+'center'].value
+            params[sequence+'center'].set(center_value, min=center_value-0.05, max=center_value+0.05)
+            sigma_value = params[sequence+'sigma'].value
+            params[sequence+'sigma'].set(sigma_value, min=sigma_value-0.05, max=sigma_value+0.05)
+            ampl_value = params[sequence+'amplitude'].value
+            params[sequence+'amplitude'].set(ampl_value, min=ampl_value-0.5,max=ampl_value+0.5)
+        result = minimize(self.residuals, params, args=(self.x_fit, self.y_fit), method='cg')
+        self.params = result.params
+        FitMplCanvas.fitPlot(self)
+    def func(self,x,params):
+        return dataFit.func(self,x,params)
+    def residuals(self,params,x,y):
+        return dataFit.residuals(self,params,x,y)
 
 class FitMplCanvas(MyMplCanvas):
     '''
@@ -184,7 +210,8 @@ class FitMplCanvas(MyMplCanvas):
         else:
             group=self.groups
         self.fitNumber=int(group)
-        self.params,self.x_fit,self.y_gradient,self.y_fit,self.x_measure,self.y_measure=dataFit(self.filePath,self.fitNumber).fit()
+        dataFit.raw_data(self)
+        self.params=dataFit(self.filePath,self.fitNumber).params
         self.fitPlot()
 
     def fitPlot(self):
@@ -195,14 +222,15 @@ class FitMplCanvas(MyMplCanvas):
         params=self.params
         y_gradient=self.y_gradient
         group_number=self.fitNumber
-
+        #ax.plot(10**x_fit,y_gradient,color='pink')
         ax.scatter(x_measure, np.gradient(y_measure), facecolors='white', edgecolors='k', s=15, marker='o', alpha=1,
            label='Measured')
         #ax.plot(10**x_fit, y_gradient)
 
         y_components = self.func(x_fit, params)
         fit_curve = sum(y_components)
-        p = y_gradient.max()/fit_curve.max()            #转换系数
+        print(y_gradient.max()/fit_curve.max(),y_gradient.max(),fit_curve.max())
+        p =y_gradient.max()/fit_curve.max()            #转换系数
         x_draw = 10**x_fit
         color = ['#e41a1c','#4daf4a','#377eb8','#984ea3','#ff7f00']
         ax.plot(x_draw, fit_curve*p, '-k', label='Fit')
@@ -212,7 +240,7 @@ class FitMplCanvas(MyMplCanvas):
         ax.set_ylabel('IRM acquisition gradient', fontsize=label_size)
         ax.set_xscale('log')
         ax.set_xlim(2, 3000)
-        ax.set_ylim(0, fit_curve.max()*p*1.1)
+        ax.set_ylim(0, y_gradient.max()*1.1)
         ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
         plt.tick_params(axis='both', which='major', labelsize=label_size)
 
@@ -231,27 +259,25 @@ class FitMplCanvas(MyMplCanvas):
                             'dp='+str('%.2f'%params[sequence+'sigma'].value)
                     ax.plot(x_draw, y_components[n]*p, color=color[m],label=label)
                     plt.legend(frameon=False, fontsize = 13)
-
         self.outputXdata = x_draw
         self.outputYdata = [line*p for line in y_components]
-
     def func(self,x,params):
-        y_component=[]
-        for i in np.arange(self.fitNumber):
-            A = 'g'+str(i+1)+'_amplitude'
-            s = 'g'+str(i+1)+'_sigma'
-            c = 'g'+str(i+1)+'_center'
-            A = params[A].value
-            s= params[s].value
-            c= params[c].value
-            y = A/(s*np.sqrt(2*np.pi))*np.exp(-(x-c)**2/(2*s**2))
-            y_component.append(y)
-        return y_component
-
-
+        return dataFit.func(self,x,params)
+class adjustFit(MyMplCanvas):
+    def initialplot(self):
+        self.fitNumber=int(self.groups)
+        dataFit.raw_data(self)
+        self.replot()
+    def replot(self):
+        params = Parameters()
+        for key,value in self.paramDict.items():
+            params.add(key, value=float(value.text()))
+        self.params=params
+        FitMplCanvas.fitPlot(self)
+    def func(self,x,params):
+        return dataFit.func(self,x,params)
 
 class MyplotMplCanvas(MyMplCanvas):
-
     def initialplot(self):
         if self.filePath==None:
             self.data_init()
@@ -261,7 +287,8 @@ class MyplotMplCanvas(MyMplCanvas):
         #self.axes.set_xscale('log')
 
     def data_raw(self):
-        with open(self.filePath) as f:
+        '''
+        with codecs.open(self.filePath,encoding='utf-8',errors='ignore') as f:
             try:
                 data = [[line.split(',')[0],line.split(',')[1]]
                         for line in f.readlines()
@@ -271,6 +298,10 @@ class MyplotMplCanvas(MyMplCanvas):
                 pass
         self.y_measure = [float(i[1].strip()) for i in data if float(i[0])>=0.001]
         self.x_measure = [float(i[0])*10**3 for i in data if float(i[0])>=0.001]
+        '''
+        rawdata=pd.read_csv(self.filePath,sep='\s+',delimiter=',',header=0,dtype=np.float64)
+        self.y_measure=rawdata.remanance
+        self.x_measure=rawdata.field*10**3
         self.axes.plot(self.x_measure,self.y_measure)
         self.axes.set_xscale('log')
 
@@ -304,6 +335,7 @@ class Mainwindow(QMainWindow):
         btFit = QPushButton('Fit',self.main_widget)
         btSaveFig = QPushButton('Save Fig', self.main_widget)
         btSaveData = QPushButton('Save Data', self.main_widget)
+        btRefit = QPushButton('reFit', self.main_widget)
 
         self.dataDisp = QTextEdit(self.main_widget)
 
@@ -312,6 +344,7 @@ class Mainwindow(QMainWindow):
         btFit.clicked.connect(self.fitButton)
         btSaveFig.clicked.connect(self.SaveFigButton)
         btSaveData.clicked.connect(self.SaveDataButton)
+        btRefit.clicked.connect(self.reFit)
 
         #self.plotButtom()
         #grid.addWidget(self.plot,1,2,2,1)
@@ -327,6 +360,7 @@ class Mainwindow(QMainWindow):
         self.vbox.addWidget(btFit,5)
         self.vbox.addWidget(btSaveFig,6)
         self.vbox.addWidget(btSaveData,7)
+        self.vbox.addWidget(btRefit,8)
 
         self.grid.addLayout(self.vbox,1,2,2,1)
 
@@ -362,34 +396,56 @@ class Mainwindow(QMainWindow):
     def showParams(self):
         subGrid = QGridLayout()
         params = self.plot.params
+        self.paramDict = {}
         for i in range(int(self.groups)):
             A = 'g'+str(i+1)+'_amplitude'
             s = 'g'+str(i+1)+'_sigma'
             c = 'g'+str(i+1)+'_center'
-            A = '%.5f'%params[A].value
-            s= '%.5f'%params[s].value
-            c= '%.5f'%params[c].value
-
-            sigmaLable = QLabel('sigma-'+str(i))
-            self.sigmaValue = QLineEdit(str(s))
-
-            centerLable = QLabel('center-'+str(i))
-            centerValue = QLineEdit(str(c))
-            amplitudeLable = QLabel('Amplitude'+str(i))
-            amplitudeValue = QLineEdit(str(A))
+            AA = '%.5f'%params[A].value
+            ss= '%.5f'%params[s].value
+            cc= '%.5f'%params[c].value
+            sigmaLable = QLabel('sigma-'+str(i+1))
+            sigmaValue = QLineEdit(str(ss))
+            centerLable = QLabel('center-'+str(i+1))
+            centerValue = QLineEdit(str(cc))
+            amplitudeLable = QLabel('Amplitude'+str(i+1))
+            amplitudeValue = QLineEdit(str(AA))
+            self.paramDict[A] = amplitudeValue
+            self.paramDict[s] = sigmaValue
+            self.paramDict[c] = centerValue
             subGrid.addWidget(sigmaLable,i,0,1,1)
-            subGrid.addWidget(self.sigmaValue,i,1,1,1)
+            subGrid.addWidget(sigmaValue,i,1,1,1)
             subGrid.addWidget(centerLable,i,2,1,1)
             subGrid.addWidget(centerValue,i,3,1,1)
             subGrid.addWidget(amplitudeLable,i,4,1,1)
             subGrid.addWidget(amplitudeValue,i,5,1,1)
+        for key, value in self.paramDict.items():
+            value.textChanged.connect(self.adjustPlot)
         return subGrid
+    def adjustPlot(self):
+        if self.plot:
+            plt.close(self.plot.fig)
+        self.plot = adjustFit(self.main_widget,width=5,hight=4,dpi=100,filePath=self.filePath,
+                              groups=self.groups,paramDict=self.paramDict)
+        try:
+            self.grid.addWidget(self.plot,1,3,5,2)
+        except Exception as e:
+            print(str(e))
+            pass
+    def reFit(self):
+        if self.plot:
+                plt.close(self.plot.fig)
 
-
+        if self.paramDict:
+            self.plot = reFit(self.main_widget,width=5,hight=4,dpi=100,filePath=self.filePath,
+                          groups=self.groups,paramDict=self.paramDict)
+        self.grid.addWidget(self.plot,1,3,5,2)
+        self.paramsGrid=self.showParams()
+        self.grid.addLayout(self.paramsGrid,6,3,3,2)
     def showDialog(self):
         filename=QFileDialog.getOpenFileName(self,'open file','/home/Documents/')
         if filename[0]:
-            f = open(filename[0],'r')
+            f = codecs.open(filename[0],'r',encoding='utf-8',errors='ignore')
             with f:
                 data=f.read()
                 self.dataDisp.setText(data)
@@ -404,6 +460,14 @@ class Mainwindow(QMainWindow):
         self.statusBar().showMessage(self.sender().text())
         self.showDialog()
     def rawButton(self):
+        if self.plot:
+            plt.close(self.plot.fig)
+        try:
+            if self.paramDict:
+                del self.paramDict
+        except Exception as e:
+            print(e)
+            pass
         self.statusBar().showMessage(self.sender().text())
         self.plot = MyplotMplCanvas(self.main_widget,width=5,hight=4,dpi=100,filePath=self.filePath)
         self.grid.addWidget(self.plot,1,3,5,2)
@@ -430,38 +494,26 @@ class Mainwindow(QMainWindow):
                 data.write(str(list(self.plot.outputYdata[i])).strip('[]')+'\n')
         else:
             pass
-
     def fitButton(self):
         if self.clickCount !=0:
             self.removeGrid()
         else:
             self.introdueLabel.deleteLater()
-
+        if self.plot:
+            plt.close(self.plot.fig)
         self.statusBar().showMessage(self.sender().text())
         self.groups = self.numberText.text()
         self.plot = FitMplCanvas(self.main_widget,width=5,hight=4,dpi=100,filePath=self.filePath,groups=self.groups)
         self.grid.addWidget(self.plot,1,3,5,2)
         self.paramsGrid=self.showParams()
-
         self.grid.addLayout(self.paramsGrid,6,3,3,2)
-        #self.grid.removeItem(subGrid)
-        #self.grid.addLayout(paramsLayout,6,3,3,1)
-
-        #self.sigmaValue.textEdited.connect(self.Adjust())
-
         self.clickCount +=1
-
     def removeGrid(self):
         for i in range(int(self.groups)*6):
-            #print(self.subGrid.count())
-            #print(i)
             self.paramsGrid.takeAt(int(self.paramsGrid.count())-1).widget().close()
         self.grid.removeItem(self.paramsGrid)
-
     def Adjust(self):
         print('ss')
-
-
 
 if __name__=='__main__':
     app = QApplication(sys.argv)
