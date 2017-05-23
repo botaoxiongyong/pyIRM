@@ -5,6 +5,10 @@ it was wrote in python3,
 
 with interface wrote in pyQt5
 
+For mac users
+an APP is under publishing
+https://drive.google.com/drive/folders/0B9ERsMj7djRxTE9tMTN5V2dsM2c?usp=sharing
+
 the package list:
 
         matplotlib
