@@ -229,7 +229,7 @@ class FitMplCanvas(MyMplCanvas):
 
         y_components = self.func(x_fit, params)
         fit_curve = sum(y_components)
-        print(y_gradient.max()/fit_curve.max(),y_gradient.max(),fit_curve.max())
+        #print(y_gradient.max()/fit_curve.max(),y_gradient.max(),fit_curve.max())
         p =y_gradient.max()/fit_curve.max()            #转换系数
         x_draw = 10**x_fit
         color = ['#e41a1c','#4daf4a','#377eb8','#984ea3','#ff7f00']
@@ -285,6 +285,8 @@ class MyplotMplCanvas(MyMplCanvas):
             self.data_raw()
         #self.axes.plot(self.x_measure,self.y_measure)
         #self.axes.set_xscale('log')
+    def error(self):
+        return self.err
 
     def data_raw(self):
         '''
@@ -299,12 +301,15 @@ class MyplotMplCanvas(MyMplCanvas):
         self.y_measure = [float(i[1].strip()) for i in data if float(i[0])>=0.001]
         self.x_measure = [float(i[0])*10**3 for i in data if float(i[0])>=0.001]
         '''
-        rawdata=pd.read_csv(self.filePath,sep='\s+',delimiter=',',header=0,dtype=np.float64)
-        self.y_measure=rawdata.remanance
-        self.x_measure=rawdata.field*10**3
-        self.axes.plot(self.x_measure,self.y_measure)
-        self.axes.set_xscale('log')
-
+        try:
+            rawdata=pd.read_csv(self.filePath,sep='\s+',delimiter=',',header=0,dtype=np.float64)
+            self.y_measure=rawdata.remanance
+            self.x_measure=rawdata.field*10**3
+            self.axes.plot(self.x_measure,self.y_measure)
+            self.axes.set_xscale('log')
+        except Exception as e:
+            self.err='Warning: two columns of filed, irm data format required'
+            pass
     def data_init(self):
         self.axes.plot(0,0)
         self.axes.set_xlim(0,1)
@@ -430,9 +435,10 @@ class Mainwindow(QMainWindow):
         try:
             self.grid.addWidget(self.plot,1,3,5,2)
         except Exception as e:
-            print(str(e))
             pass
     def reFit(self):
+
+        self.removeGrid()
         if self.plot:
                 plt.close(self.plot.fig)
 
@@ -454,7 +460,7 @@ class Mainwindow(QMainWindow):
             f.close()
 
     def fileQuit(self):
-        print('t')
+        sys.exit(app.exec_())
 
     def loadButton(self):
         self.statusBar().showMessage(self.sender().text())
@@ -464,12 +470,15 @@ class Mainwindow(QMainWindow):
             plt.close(self.plot.fig)
         try:
             if self.paramDict:
+                import gc
                 del self.paramDict
+                gc.collect()
         except Exception as e:
-            print(e)
             pass
-        self.statusBar().showMessage(self.sender().text())
+        #self.statusBar().showMessage(self.sender().text())
         self.plot = MyplotMplCanvas(self.main_widget,width=5,hight=4,dpi=100,filePath=self.filePath)
+        if self.plot.error():
+            self.statusBar().showMessage(self.plot.error())
         self.grid.addWidget(self.plot,1,3,5,2)
     def SaveFigButton(self):
         if self.plot:
@@ -478,6 +487,7 @@ class Mainwindow(QMainWindow):
             pass
     def SaveDataButton(self):
         if self.plot:
+            '''
             dataFile = os.path.splitext(self.filePath)[0]+'_fit.dat'
             data = open(dataFile, 'w')
             #self.params,self.x_fit,self.y_gradient,self.y_fit,self.x_measure,self.y_measure=
@@ -492,6 +502,23 @@ class Mainwindow(QMainWindow):
             for i in np.arange(len(self.plot.outputYdata)):
                 data.write('fitted IRM component '+str(i+1)+'\n')
                 data.write(str(list(self.plot.outputYdata[i])).strip('[]')+'\n')
+            '''
+            #----------------------------------------------------------------------
+            #using pandas save csv file
+            mField = self.plot.x_measure
+            mIrm = self.plot.y_measure
+            #print(self.plot.outputXdata.tolist())
+            fField = self.plot.outputXdata.tolist()
+            fIrm  = sum(self.plot.outputYdata).tolist()
+            data_dict = {'measured field':mField, 'measured IRM':mIrm,
+                               'fitted field':fField, 'fitted IRM':fIrm}
+            df = pd.DataFrame.from_dict(data_dict, orient='index')
+            df = df.transpose()
+            for i in np.arange(len(self.plot.outputYdata)):
+                fIrmcomp = self.plot.outputYdata[i].tolist()
+                df['fitted IRM comoponent '+str(i+1)] = fIrmcomp
+            fileName = os.path.splitext(self.filePath)[0]+'_fit.csv'
+            df.to_csv(fileName)
         else:
             pass
     def fitButton(self):
