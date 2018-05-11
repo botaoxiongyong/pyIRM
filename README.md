@@ -5,15 +5,21 @@ it was wrote in python3,
 
 with interface wrote in pyQt5
 
+New features:
+Now you can manually adjust all the parameters and see the results immediately, and afterwards, you could try 'refit' button to better refine your fittings.
+
+
+
 For mac users
 
-an APP is under publishing
+an APP can runing on Mac OS (not up to date)
 
 https://drive.google.com/open?id=0B9ERsMj7djRxQWhLZlktRlJCQ0E
 
 the package list:
 
         matplotlib
+        pandas
         PyQt5
         lea
         scipy
