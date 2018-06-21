@@ -12,9 +12,9 @@ Now you can manually adjust all the parameters and see the results immediately, 
 
 For mac users
 
-an APP can runing on Mac OS (not up to date)
+an APP can run on Mac OS (not up to date)
 
-https://drive.google.com/open?id=0B9ERsMj7djRxQWhLZlktRlJCQ0E
+        https://drive.google.com/open?id=0B9ERsMj7djRxQWhLZlktRlJCQ0E
 
 # Installation
 1. Clone this repository with Git:
