@@ -28,6 +28,10 @@ an APP can run on Mac OS (not up to date)
 
         # in the same derectory
         $ python3 setup.py install
+        
+# Runing
+
+        $ python3 -m pyIRM
      
 ps: 
 
