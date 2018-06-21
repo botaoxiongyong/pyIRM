@@ -18,11 +18,14 @@ https://drive.google.com/open?id=0B9ERsMj7djRxQWhLZlktRlJCQ0E
 
 # Installation
 1. Clone this repository with Git:
+
         $ git clone https://github.com/botaoxiongyong/pyIRM
 2. install dependences:
+
         $ cd pyIRM
         $ pip3 install -r requirements.txt
 3. install pyIRM
+
         # in the same derectory
         $ python3 setup.py install
      
