@@ -16,35 +16,15 @@ an APP can runing on Mac OS (not up to date)
 
 https://drive.google.com/open?id=0B9ERsMj7djRxQWhLZlktRlJCQ0E
 
-the package list:
-
-        matplotlib
-        pandas
-        PyQt5
-        lea
-        scipy
-        numpy
-        sklearn
-        lmfit
-
-the most easy way to insall all of this above is using pip
-
-on Apple Mac
-
-     brew install python3
-     brew install pip
-     pip3 install matplotlib, PyQt5........
-     
-on Linux 
-
-     sudo apt-get install python3
-     sudo apt-get install pip
-     pip3 install matplotlib, PyQt5........
-    
-open the terminal
-
-     cd /home/Documents/ (if you put the pyIRM.py file in /home/Documents/)
-     python3 pyIRM.py
+# Installation
+1. Clone this repository with Git:
+        $ git clone https://github.com/botaoxiongyong/pyIRM
+2. install dependences:
+        $ cd pyIRM
+        $ pip3 install -r requirements.txt
+3. install pyIRM
+        # in the same derectory
+        $ python3 setup.py install
      
 ps: 
 
