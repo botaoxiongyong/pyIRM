@@ -1,1 +1,2 @@
-
+import pyIRM
+pyIRM.main()
