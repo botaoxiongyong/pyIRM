@@ -542,7 +542,10 @@ class Mainwindow(QMainWindow):
     def Adjust(self):
         print('ss')
 
-if __name__=='__main__':
-     app = QApplication(sys.argv)
+def main():
+    app = QApplication(sys.argv)
     Mwindow = Mainwindow()
     sys.exit(app.exec_())
+
+if __name__=='__main__':
+    main()
