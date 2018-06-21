@@ -1,2 +1,5 @@
 from pyIRM import *
-main()
+
+app = QApplication(sys.argv)
+Mwindow = Mainwindow()
+sys.exit(app.exec_())
