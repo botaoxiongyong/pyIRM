@@ -1,1 +1,2 @@
-
+from pyIRM import *
+main()
