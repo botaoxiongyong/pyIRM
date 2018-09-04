@@ -10,13 +10,6 @@ New features:
 Now you can manually adjust all the parameters and see the results immediately, and afterwards, you could try 'refit' button to better refine your fittings.
 
 
-
-//For mac users
-
-//an APP can run on Mac OS (not up to date)
-
-//        https://drive.google.com/open?id=0B9ERsMj7djRxQWhLZlktRlJCQ0E
-
 # Installation
 1. Clone this repository with Git:
 
