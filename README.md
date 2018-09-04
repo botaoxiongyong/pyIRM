@@ -1,7 +1,8 @@
 # pyIRM
+![alt text](https://github.com/botaoxiongyong/pyIRM/blob/master/example/Screenshot%20from%202018-09-04%2013-38-17.png)
 this is for rock magnetic irm acquisition curves decompose
 
-it was wrote in python3, 
+it was wrote in python3,
 
 with interface wrote in pyQt5
 
@@ -28,12 +29,12 @@ an APP can run on Mac OS (not up to date)
 
         # in the same derectory
         $ python3 setup.py install
-        
+
 # Runing
 
         $ python3 -m pyIRM
-     
-ps: 
+
+ps:
 
 if you save the fig and data, they will be save in the path where you open your measured IRM data.
 
