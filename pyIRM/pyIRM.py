@@ -1,10 +1,10 @@
-#! /usr/local/bin/python3
+#! /usr/local/bin/env python
 # -*- coding:utf-8 -*-
 '''
 #====================================================================
 this is for IRM decompose, based on log gaussian,
 
-this is based on python3
+this is based on python3.6 and PyQt5
 
 author: Jiabo Liu
 GFZ Potsdam
