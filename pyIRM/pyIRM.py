@@ -1,12 +1,14 @@
 #! /usr/local/bin/python3
 # -*- coding:utf-8 -*-
 '''
+#====================================================================
 this is for IRM decompose, based on log gaussian,
 
 this is based on python3
 
 author: Jiabo Liu
 GFZ Potsdam
+#====================================================================
 '''
 
 import sys
@@ -32,12 +34,12 @@ from lmfit import minimize,Parameters
 
 class MyMplCanvas(FigureCanvas):
     '''
-    #---------------------------------------------------------------
+    #====================================================================
     this is the parent class for matplotlib plot in PyQt5.
     setting plot properties.
     passing data for plot, for convinience ,the class of dataFit was
     /directly used.
-    #---------------------------------------------------------------
+    #====================================================================
     '''
     def __init__(self,parent=None,filePath=None,paramDict=None,groups=None,datafit=None):
         width,hight,dpi=5,4,100
@@ -66,9 +68,17 @@ class MyMplCanvas(FigureCanvas):
 
 def loadData(filePath=None):
     '''
-    #--------------------------------------------------------------------------
-    read data file
-    #--------------------------------------------------------------------------
+    #====================================================================
+    in:
+    read measured raw data file,
+    search the line ['    Field       Remanence  '] in measured data file,
+    skip all the rows above and the last line,
+    otherwise, load data as two columns.
+    #
+    out:
+    rawDf,fitDf are the pandas dataframe of measured raw data, and the
+    log10 interploted data
+    #====================================================================
     '''
     skip_from = '    Field       Remanence  '
     with open(filePath,'rb') as fr:
@@ -80,10 +90,7 @@ def loadData(filePath=None):
                 break
             else:
                 skiprows=None
-            #else:
-            #    print('file format wrong, cannot find the data row.')
     skiprows = skiprows if isinstance(skiprows,int) else 1
-
     rawDf = pd.read_csv(filePath, sep='\s+', delimiter=',', names=['field','remanance'],
                         dtype=np.float64, skiprows=skiprows, skipfooter=1,engine='python')
     rawDf = rawDf[(rawDf['field']>=0)]
@@ -94,9 +101,6 @@ def loadData(filePath=None):
     rawDf['field_log'] = np.log10(rawDf['field'])
     rawDf['rem_gradient'] = np.gradient(rawDf['remanance'])
     rawDf['rem_grad_norm'] = rawDf['rem_gradient']/rawDf['rem_gradient'].max()
-    #x_measure=rawdata['field']*10**3
-    #x_measure=rawdata[(rawdata['']>=2)]#[i for i in x_measure if i >=2]
-    #y_measure=[y_measure[i] for i in range(len(x_measure)) if x_measure[i]>=2]
     field_fit = np.linspace(np.log10(rawDf['field'].min()),
                             np.log10(rawDf['field'].max()), 100)
     y_gradient = interpolate.splev(field_fit,
@@ -104,14 +108,36 @@ def loadData(filePath=None):
                                    np.gradient(rawDf['remanance'])))
     fitDf = pd.DataFrame({'field':field_fit,'remanance':y_gradient})
     fitDf[fitDf['remanance']<=0] = 10**-15
-    #print(fitDf)
-
     return rawDf,fitDf
 
 class dataFit():
     '''
+    #====================================================================
     this is the main part for data fitting
+    #
+    raw_data: get the measured and log10 interploted data (rawDf,fitDf)
+    #
+    rand_data: regarded the IRM acquisition curve as frequency distribution,
+               produce random numbers based on the frequency. that is,
+               converte IRM acquision to 1Dimensioanl dataset.
+    #
+    loggausfit: using sklearn GMM model. the GMM defualt using k-mean
+                for clustering. then iterate E-M steps to get the best
+                fit.
 
+                With specified unmixing numbers, the rand_data run 10 times,
+                the GMM run 20 times. for each time, the fitted results are
+                recorded in a pandas DataFrame(df).
+
+                After all the iterations. the df id sorted by covariances(max),
+                residuals(distance,min), and std(means) (max).
+
+                The best result is base on max covariances, minimum residuals,
+                and maximum distince means.
+    #
+    fitParams: the parameters of the best fit will be recorded and printed
+                on the GUI.
+    #====================================================================
     '''
     def __init__(self,filePath=None,fitNumber=None):
         self.fitNumber=fitNumber
@@ -120,36 +146,15 @@ class dataFit():
         self.loggausfit()
         self.fitParams()
 
-        #return self.params,self.x_fit,self.y_gradient,self.y_fit,self.x_measure,self.y_measure
-
     def raw_data(self,filePath=None):
-        '''
-        loading raw data file, which is the raw data file that
-        generated by MircoMag, only if there are more than two
-        rows of floats, the program would regard it as correct
-        data file.
-        Be aware that x_fit using log10 scale for easy fitting,
-        and will changed to linear scale for plotting.
-        '''
-        #print(self.filePath)
         self.rawDf,self.fitDf = loadData(filePath)
-        #print(fitDf)
+
     def rand_data(self):
-        '''
-        the IRM gradient curve can be regarded as frequency distribution,
-        as a result, generating one dimensional random data set for log
-        gaussian fitting
-        '''
         p = self.fitDf['remanance']/sum(self.fitDf['remanance'])
         data = np.random.choice(a=self.fitDf['field'],size=500,p=p)
         return data.reshape(-1,1)
+
     def loggausfit(self):
-        '''
-        import sklearn GMM model, to evaluate the initial value for fitting,
-        and then import lmfit to iterate and get the parameters of the best
-        fit.
-        '''
-        #data = self.data_1D.reshape(-1,1)
         self.fitDf['IRM_norm'] = self.fitDf['remanance']/self.fitDf['remanance'].max()
         xstd,distance,means,covras,weights,yfits = [],[],[],[],[],[]
         for i in range(10):
@@ -174,29 +179,17 @@ class dataFit():
                 distance.append(1 - spatial.distance.cosine(pdf_norm,self.fitDf['IRM_norm']))
                 yfits.append(pdf_individual)
             del data
-        #print(logprob)
-
         df = pd.DataFrame({'xstd':xstd, 'distance':distance, 'means':means,
                            'covras':covras, 'yfits':yfits, 'weights':weights})
-        #print(df)
         df['cov_max'] = [np.min(i) for i in df['covras']]
         df = df.sort_values(by=['distance','cov_max','xstd'], ascending=[False,True,False])
-        #print(df)
         pdf_best = df['yfits'].iloc[0]
         self.means = df['means'].iloc[0]
         self.covra = df['covras'].iloc[0]#sigma**2
         self.weights = df['weights'].iloc[0]
-
-        #print(self.weights)
-
         self.pdf_best = pdf_best/np.max(np.sum(pdf_best,axis=1))
 
     def fitParams(self):
-        '''
-        #--------------------------------------------------------------------------
-        get params fitted params
-        #--------------------------------------------------------------------------
-        '''
         params = Parameters()
         for i in np.arange(self.fitNumber):
             sequence = 'g' + str(i + 1) + '_'
@@ -206,6 +199,15 @@ class dataFit():
         self.params = params
 
 class lmLeast():
+    '''
+    #====================================================================
+    the func and residuals are functions for lmfit.minimize() in reFit
+    #
+    func: caculate the gaussian distince
+    #
+    residuals: caculate the residuals between fit and measured data
+    #====================================================================
+    '''
     def __init__(self,fitNumber=None):
         self.fitNumber=fitNumber
     def func(self,x,params):
@@ -226,6 +228,19 @@ class lmLeast():
         return y - sum(y_component)
 
 class reFit(MyMplCanvas):
+    '''
+    #====================================================================
+    the child class of MyMplCanvas
+
+    when changed the values of parameters on GUI, and clicked reFit button,
+    the dataFit will not work,
+
+    on the other hand, the lmfit.minimize will be used here.
+
+    the parameters on the GUI will be passed here, and based on the least
+    square, to caculate the best fit.
+    #====================================================================
+    '''
     def initialplot(self):
         self.fitResult = self.datafit
         self.replot()
@@ -259,9 +274,9 @@ class reFit(MyMplCanvas):
 
 def fit_plots(ax,xfit,xraw,yfit,yraw):
     '''
-    #--------------------------------------------------------------------------
-    plot the fitted results for all functions
-    #--------------------------------------------------------------------------
+    #====================================================================
+    plot the fitted results for data fit and refit
+    #====================================================================
     '''
     ax.plot(xfit, yfit)
     ax.plot(xfit, np.sum(yfit,axis=1))
@@ -271,33 +286,22 @@ def fit_plots(ax,xfit,xraw,yfit,yraw):
 
 class FitMplCanvas(MyMplCanvas):
     '''
-    this is the ploting part, all the data generated by fitting are assembled here,
-    be carefull, the ploting scale of the X axies need to changed to linear scale,
-    that is why x_draw = 10**x_fit.
+    #====================================================================
+    this is the ploting part, all the data generated by Datafit are assembled here,
 
-    as well as the Y scale, the fit value and measured gradient value should be
-    consistent, as a result, the coefficient p=y_gradient.max()/fit_curve.max()
-    is adopted.
+    the best fit from dataFit are ploted here.
 
     the data for plotting is also for output.
+    #====================================================================
     '''
     def __init__(self, *args, **kwargs):
         MyMplCanvas.__init__(self, *args, **kwargs)
-        #self.groups = groups
     def initialplot(self):
-        #dataFit.raw_data(self)
-        #self.params=dataFit(self.filePath,self.fitNumber).params
         self.fitResult = self.datafit#dataFit(self.filePath,self.fitNumber)
         self.fitPlot()
 
     def fitPlot(self):
         ax=self.axes
-        #if adjust_data==None:
-        #    ax.plot(self.fitResult.fitDf['field'],self.fitResult.pdf_best)
-        #    ax.plot(self.fitResult.fitDf['field'],np.sum(self.fitResult.pdf_best,axis=1))
-        #    ax.scatter(self.fitResult.rawDf['field_log'], self.fitResult.rawDf['rem_grad_norm'])
-        #else:
-        #    ax.plot(adjust_data[0],adjust_data[1])
         fit_plots(ax=ax,
                   xfit=self.fitResult.fitDf['field'],
                   xraw=self.fitResult.rawDf['field_log'],
@@ -306,22 +310,20 @@ class FitMplCanvas(MyMplCanvas):
 
 
 class adjustFit(MyMplCanvas):
+    '''
+    #====================================================================
+    when the parameter values on the GUI changed,
+    the plot will be replot here
+    #====================================================================
+    '''
     def initialplot(self):
-        #self.fitNumber=int(self.groups)
         self.fitResult = self.datafit
-        #self.fitResult = fitedData.params
-        #print(self.filePath)
-        #sefl.rawDf,self.fitDf=dataFit().raw_data(self.filePath)
         self.replot()
     def replot(self):
         params = Parameters()
         for key,value in self.paramDict.items():
             params.add(key, value=float(value.text()))
         self.params=params
-        #FitMplCanvas.fitPlot()
-        #FitMplCanvas.fitPlot(self)
-        #self.rawDf,self.fitDf = loadData(self.filePath)
-
         pdf_adjust = lmLeast(self.fitNumber).func(self.fitResult.fitDf['field'].values,self.params)
         pdf_adjust = pdf_adjust/np.max(np.sum(pdf_adjust,axis=0))
         ax=self.axes
@@ -331,30 +333,17 @@ class adjustFit(MyMplCanvas):
                    yfit=np.array(pdf_adjust).transpose(),
                    yraw=self.fitResult.rawDf['rem_grad_norm'])
 
-
-        #ax.plot(self.fitResult.fitDf['field'], np.array(pdf_adjust).transpose())
-        #ax.plot(self.fitResult.fitDf['field'], pdf_adjust[0])
-        #ax.plot(self.fitResult.fitDf['field'], np.sum(pdf_adjust,axis=0))
-        #ax.plot(self.fitDf['field'],np.array(pdf_adjust).)
-        #ax.scatter(self.fitResult.rawDf['field_log'], self.fitResult.rawDf['rem_grad_norm'])
-
 class rawPlot(MyMplCanvas):
+    '''
+    #====================================================================
+    this for plot the raw plot button,
+    plot the measured data at the beginning
+    #====================================================================
+    '''
     def initialplot(self):
         ax=self.axes
         ax.set_xlabel('Field (mT)')
         ax.set_ylabel('IRM normalization')
-        '''
-        with codecs.open(self.filePath,encoding='utf-8',errors='ignore') as f:
-            try:
-                data = [[line.split(',')[0],line.split(',')[1]]
-                        for line in f.readlines()
-                        if len(line.split(','))==2 and float(line.split(',')[0])]
-            except:
-                print('data format is not correct')
-                pass
-        self.y_measure = [float(i[1].strip()) for i in data if float(i[0])>=0.001]
-        self.x_measure = [float(i[0])*10**3 for i in data if float(i[0])>=0.001]
-        '''
         if self.filePath != None:
             rawDf,fitDf = loadData(filePath=self.filePath)
             ax.plot(rawDf['field'],rawDf['remanance']/rawDf['remanance'].max())
@@ -363,7 +352,9 @@ class rawPlot(MyMplCanvas):
 
 class Mainwindow(QMainWindow):
     '''
-    this is for the interface
+    #====================================================================
+    this is PyQt5 GUI
+    #====================================================================
     '''
     def __init__(self):
         super().__init__()
