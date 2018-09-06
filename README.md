@@ -1,5 +1,5 @@
 # pyIRM
-![alt text](https://github.com/botaoxiongyong/pyIRM/blob/master/example/Screenshot%20from%202018-09-04%2013-38-17.png)
+![alt text](https://github.com/botaoxiongyong/pyIRM/blob/master/example/py_irm_gui.png)
 this is for rock magnetic irm acquisition curves decompose
 
 it was wrote in python3,
