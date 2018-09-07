@@ -494,7 +494,7 @@ class Mainwindow(QMainWindow):
     def showDialog(self):
         filename=QFileDialog.getOpenFileName(self,'open file','/home/Documents/')
         if filename[0]:
-            f = codecs.open(filename[0],'r',encoding='utf-8',errors='ignore')
+            f = open(filename[0],'r',encoding='utf-8',errors='ignore')
             with f:
                 data=f.read()
                 self.dataDisp.setText(data)
