@@ -27,6 +27,9 @@ Now you can manually adjust all the parameters and see the results immediately, 
 
         $ python3 -m pyIRM
 
+# Jupyter notebook
+        $ check the example: .../pyIRM/pyIRM.ipynb
+
 ps:
 
 if you save the fig and data, they will be save in the path where you open your measured IRM data.
