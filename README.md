@@ -9,6 +9,8 @@ with interface wrote in pyQt5
 New features:
 Now you can manually adjust all the parameters and see the results immediately, and afterwards, you could try 'refit' button to better refine your fittings.
 
+# License
+MIT License
 
 # Installation
 1. Clone this repository with Git:
