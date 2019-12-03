@@ -28,7 +28,7 @@ from scipy import interpolate,spatial
 from scipy.stats import norm
 import numpy as np
 from sklearn.mixture import GaussianMixture as GMM
-#from lmfit.models import GaussianModel
+from lmfit.models import GaussianModel
 from lmfit import minimize,Parameters
 
 class MyMplCanvas(FigureCanvas):
@@ -269,10 +269,9 @@ class reFit(MyMplCanvas):
                    xfit=self.fitResult.fitDf['field'],
                    xraw=self.fitResult.rawDf['field_log'],
                    yfit=np.array(pdf_adjust).transpose(),
-                   yraw=self.fitResult.rawDf['rem_grad_norm'],
-                   params=self.params)
+                   yraw=self.fitResult.rawDf['rem_grad_norm'])
 
-def fit_plots(ax,xfit,xraw,yfit,yraw,params=None):
+def fit_plots(ax,xfit,xraw,yfit,yraw):
     '''
     #====================================================================
     plot the fitted results for data fit and refit
@@ -280,22 +279,11 @@ def fit_plots(ax,xfit,xraw,yfit,yraw,params=None):
     '''
     global _yfits_
     _yfits_ = yfit
-    if params != None:
-        for i in np.arange(yfit.shape[1]):
-            y = yfit[:,i]
-            s = 'g'+str(i+1)+'_sigma'
-            c = 'g'+str(i+1)+'_center'
-            content=sum(y)/sum(np.sum(yfit,axis=1))*100
-            label = str(np.int(content))+'%   '+ str('%.2f'%10**params[c].value)+' mT\n' +\
-                    'dp='+str('%.2f'%params[s].value)
-            ax.plot(xfit,y,label=label)
-    else:
-        ax.plot(xfit, yfit)
+    ax.plot(xfit, yfit)
     ax.plot(xfit, np.sum(yfit,axis=1))
     ax.scatter(xraw, yraw)
     ax.set_xlabel('Field (log10(mT))')
     ax.set_ylabel('IRM normalization')
-    ax.legend()
 
 class FitMplCanvas(MyMplCanvas):
     '''
@@ -319,8 +307,7 @@ class FitMplCanvas(MyMplCanvas):
                   xfit=self.fitResult.fitDf['field'],
                   xraw=self.fitResult.rawDf['field_log'],
                   yfit=self.fitResult.pdf_best,
-                  yraw=self.fitResult.rawDf['rem_grad_norm'],
-                  params=self.fitResult.params)
+                  yraw=self.fitResult.rawDf['rem_grad_norm'])
 
 
 class adjustFit(MyMplCanvas):
