@@ -12,7 +12,7 @@ GFZ Potsdam
 import sys
 import os
 import pandas as pd
-import codecs
+#import codecs
 import matplotlib
 matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore
