@@ -1,7 +1,0 @@
-matplotlib
-pandas
-PyQt5
-scipy
-numpy
-sklearn
-lmfit

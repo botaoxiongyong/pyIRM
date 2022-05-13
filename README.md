@@ -9,7 +9,7 @@ New features:
 
 1. You can manually adjust all the parameters and see the results immediately, and afterwards, you could try 'refit' button to better refine your fittings.
 
-2. All components have Gauss uncertainties. 
+2. All components have Gauss uncertainties.
 
 # License
 MIT License
@@ -22,20 +22,9 @@ VSM8600
 txt file with two columns of Field and Moment, with delimeter of comma
 
 # Installation
-1. Clone this repository with Git:
-
-        $ git clone https://github.com/botaoxiongyong/pyIRM
-2. install dependences:
-
-        $ cd pyIRM
-        $ pip3 install -r requirements.txt
-3. install pyIRM
-
-        # in the same derectory
-        $ python3 setup.py install
+        $ pip install git+https://github.com/botaoxiongyong/pyIRM.git
 
 # Runing
-
         $ python3 -m pyIRM
 
 # Jupyter notebook
