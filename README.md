@@ -23,6 +23,7 @@ txt file with two columns of Field and Moment, with delimeter of comma
 
 # Installation
 Python3 version: 3.9
+
         $ pip install git+https://github.com/botaoxiongyong/pyIRM.git
 
 # Runing
