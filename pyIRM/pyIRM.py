@@ -113,7 +113,7 @@ def loadData(filePath=None):
     rawDf = rawDf[(rawDf['field']>=2)]
     rawDf['field_log'] = np.log10(rawDf['field'])
     rawDf['rem_gradient'] = np.gradient(rawDf['remanance'])
-    rawDf['rem_grad_norm'] = rawDf['rem_gradient']/rawDf['rem_gradient'].max()
+    #rawDf['rem_grad_norm'] = rawDf['rem_gradient']/rawDf['rem_gradient'].max()
     field_fit = np.linspace(np.log10(rawDf['field'].min()),
                             np.log10(rawDf['field'].max()), 100)
     #y_gradient = interpolate.splev(field_fit,
@@ -123,6 +123,8 @@ def loadData(filePath=None):
     y_gradient = signal.filtfilt(b,a,np.interp(field_fit,np.log10(rawDf['field']),np.gradient(rawDf['remanance'].rolling(2, min_periods=1).mean())))
     fitDf = pd.DataFrame({'field':field_fit,'remanance':y_gradient})
     fitDf.remanance[fitDf.remanance<=0] = 10**-15
+
+    rawDf['rem_grad_norm'] = rawDf['rem_gradient']/np.max(fitDf['remanance'])
     return rawDf,fitDf
 
 class dataFit():
@@ -333,7 +335,7 @@ class reFit(MyMplCanvas):
                    yraw=self.fitResult.rawDf['rem_grad_norm'],
                    params=self.params,
                    ycomponents=self.fitResult.ycomponents,
-                   fration=np.max(self.fitResult.rawDf['rem_gradient'])/np.max(self.fitResult.fitDf['remanance']))
+                   fration=1)
 
 def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None,fration=None):
     '''
@@ -407,7 +409,7 @@ class FitMplCanvas(MyMplCanvas):
                   yraw=self.fitResult.rawDf['rem_grad_norm'],
                   params=self.fitResult.params,
                   ycomponents=self.fitResult.ycomponents,
-                  fration=np.max(self.fitResult.rawDf['rem_gradient'])/np.max(self.fitResult.fitDf['remanance']))
+                  fration=1)
 
 
 class adjustFit(MyMplCanvas):
@@ -434,7 +436,7 @@ class adjustFit(MyMplCanvas):
                    yfit=np.array(pdf_adjust).transpose(),
                    yraw=self.fitResult.rawDf['rem_grad_norm'],
                    ycomponents=self.fitResult.ycomponents,
-                   fration=np.max(self.fitResult.rawDf['rem_gradient'])/np.max(self.fitResult.fitDf['remanance']))
+                   fration=1)
 
 class rawPlot(MyMplCanvas):
     '''
