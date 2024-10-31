@@ -22,7 +22,7 @@ from PyQt5.QtWidgets import (QApplication,QMainWindow,QGridLayout,QSizePolicy,
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 #from lea import Lea
 from matplotlib import pyplot as plt
-from scipy import interpolate,spatial
+from scipy import interpolate,spatial,signal
 from scipy.stats import norm
 import numpy as np
 from sklearn.mixture import GaussianMixture as GMM
@@ -116,9 +116,13 @@ def loadData(filePath=None):
     rawDf['rem_grad_norm'] = rawDf['rem_gradient']/rawDf['rem_gradient'].max()
     field_fit = np.linspace(np.log10(rawDf['field'].min()),
                             np.log10(rawDf['field'].max()), 100)
-    y_gradient = np.interp(field_fit,np.log10(rawDf['field']),
-                                   np.gradient(rawDf['remanance'].rolling(5).mean())
+    #y_gradient = interpolate.splev(field_fit,
+    #                               interpolate.splrep(np.log10(rawDf['field']),
+    #                               np.gradient(rawDf['remanance'].rolling(5, min_periods=1).mean())))
+    b, a = signal.butter(5, 0.3)
+    y_gradient = signal.filtfilt(b,a,np.interp(field_fit,np.log10(rawDf['field']),np.gradient(rawDf['remanance'].rolling(4, min_periods=1).mean())))
     fitDf = pd.DataFrame({'field':field_fit,'remanance':y_gradient})
+    fitDf['remanance'] = fitDf['remanance'].rolling(10, min_periods=1).mean()
     fitDf.remanance[fitDf.remanance<=0] = 10**-15
     return rawDf,fitDf
 
