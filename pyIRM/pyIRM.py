@@ -120,9 +120,8 @@ def loadData(filePath=None):
     #                               interpolate.splrep(np.log10(rawDf['field']),
     #                               np.gradient(rawDf['remanance'].rolling(5, min_periods=1).mean())))
     b, a = signal.butter(5, 0.3)
-    y_gradient = signal.filtfilt(b,a,np.interp(field_fit,np.log10(rawDf['field']),np.gradient(rawDf['remanance'].rolling(4, min_periods=1).mean())))
+    y_gradient = signal.filtfilt(b,a,np.interp(field_fit,np.log10(rawDf['field']),np.gradient(rawDf['remanance'].rolling(2, min_periods=1).mean())))
     fitDf = pd.DataFrame({'field':field_fit,'remanance':y_gradient})
-    fitDf['remanance'] = fitDf['remanance'].rolling(10, min_periods=1).mean()
     fitDf.remanance[fitDf.remanance<=0] = 10**-15
     return rawDf,fitDf
 
@@ -333,21 +332,23 @@ class reFit(MyMplCanvas):
                    yfit=np.array(pdf_adjust).transpose(),
                    yraw=self.fitResult.rawDf['rem_grad_norm'],
                    params=self.params,
-                   ycomponents=self.fitResult.ycomponents)
+                   ycomponents=self.fitResult.ycomponents,
+                   fration=np.max(self.fitResult.rawDf['rem_gradient'])/np.max(self.fitResult.fitDf['remanance']))
 
-def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None):
+def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None,fration=None):
     '''
     #====================================================================
     plot the fitted results for data fit and refit
     #====================================================================
     '''
     global _yfits_
+    p = 1
     _yfits_ = yfit
     colors = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd', u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
     if ycomponents !=None:
         for i,line in enumerate(ycomponents):
-            mean = np.mean(line[1],axis=0)
-            std = np.std(line[1],axis=0)
+            mean = np.mean(line[1],axis=0)*p
+            std = np.std(line[1],axis=0)*p
             x = xfit
             y1 = mean-std
             y2 = mean+std
@@ -363,21 +364,22 @@ def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None):
             gradient.set_clip_path(polygon.get_paths()[0], transform=plt.gca().transData)
 
             for l in line[1]:
-                plt.plot(xfit,l,lw=0.1,alpha=0.5,color='grey')
+                plt.plot(xfit,l*p,lw=0.1,alpha=0.5,color='grey')
 
-    if params != None:
-        for i in np.arange(yfit.shape[1]):
+
+    for i in np.arange(yfit.shape[1]):
+        if params != None:
             y = yfit[:,i]
             s = 'g'+str(i+1)+'_sigma'
             c = 'g'+str(i+1)+'_center'
             content=sum(y)/sum(np.sum(yfit,axis=1))*100
             label = str(int(content))+'%   '+ str('%.2f'%10**params[c].value)+' mT\n' +\
                     'dp='+str('%.2f'%params[s].value)
-            ax.plot(xfit,y,label=label)
-    else:
-        ax.plot(xfit, yfit)
-    ax.plot(xfit, np.sum(yfit,axis=1),color='grey')
-    ax.scatter(xraw, yraw,color='k',facecolor='none',alpha=0.5)
+            ax.plot(xfit,y*p,label=label)
+        else:
+            ax.plot(xfit, yfit[:,i]*p)
+    ax.plot(xfit, np.sum(yfit,axis=1)*p,color='grey')
+    ax.scatter(xraw, yraw*fration,color='k',facecolor='none',alpha=0.5)
     ax.set_xlabel('Field (log10(mT))')
     ax.set_ylabel('IRM normalization')
     ax.legend(frameon=False)
@@ -404,7 +406,8 @@ class FitMplCanvas(MyMplCanvas):
                   yfit=self.fitResult.pdf_best,
                   yraw=self.fitResult.rawDf['rem_grad_norm'],
                   params=self.fitResult.params,
-                  ycomponents=self.fitResult.ycomponents)
+                  ycomponents=self.fitResult.ycomponents,
+                  fration=np.max(self.fitResult.rawDf['rem_gradient'])/np.max(self.fitResult.fitDf['remanance']))
 
 
 class adjustFit(MyMplCanvas):
@@ -430,7 +433,8 @@ class adjustFit(MyMplCanvas):
                    xraw=self.fitResult.rawDf['field_log'],
                    yfit=np.array(pdf_adjust).transpose(),
                    yraw=self.fitResult.rawDf['rem_grad_norm'],
-                   ycomponents=self.fitResult.ycomponents)
+                   ycomponents=self.fitResult.ycomponents,
+                   fration=np.max(self.fitResult.rawDf['rem_gradient'])/np.max(self.fitResult.fitDf['remanance']))
 
 class rawPlot(MyMplCanvas):
     '''
