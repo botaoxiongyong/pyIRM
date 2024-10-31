@@ -116,9 +116,8 @@ def loadData(filePath=None):
     rawDf['rem_grad_norm'] = rawDf['rem_gradient']/rawDf['rem_gradient'].max()
     field_fit = np.linspace(np.log10(rawDf['field'].min()),
                             np.log10(rawDf['field'].max()), 100)
-    y_gradient = interpolate.splev(field_fit,
-                                   interpolate.splrep(np.log10(rawDf['field']),
-                                   np.gradient(rawDf['remanance'])))
+    y_gradient = np.interp(field_fit,np.log10(rawDf['field']),
+                                   np.gradient(rawDf['remanance'].rolling(5).mean())
     fitDf = pd.DataFrame({'field':field_fit,'remanance':y_gradient})
     fitDf.remanance[fitDf.remanance<=0] = 10**-15
     return rawDf,fitDf
