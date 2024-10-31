@@ -12,7 +12,7 @@ GFZ Potsdam
 import sys
 import os
 import pandas as pd
-#import codecs
+import codecs
 import matplotlib
 matplotlib.use('Qt5Agg')
 from PyQt5 import QtCore
@@ -28,8 +28,6 @@ import numpy as np
 from sklearn.mixture import GaussianMixture as GMM
 #from lmfit.models import GaussianModel
 from lmfit import minimize,Parameters
-from matplotlib.colors import LinearSegmentedColormap
-from scipy.ndimage import gaussian_filter
 
 class MyMplCanvas(FigureCanvas):
     '''
@@ -79,33 +77,19 @@ def loadData(filePath=None):
     log10 interploted data
     #====================================================================
     '''
-    skip_3900_from = '    Field       Remanence  '
-    skip_8600_form = '##DATA TABLE Moment (m)'
+    skip_from = '    Field       Remanence  '
     with open(filePath,'rb') as fr:
         #f = fr.read()
         for i,line in enumerate(fr,1):
             #print(line)
-            if skip_8600_form in str(line):
-                skiprows=i+1
-                coding='ISO-8859-15'
-                names=['Step','Iteration','Segment','field','remanance',
-                       'Time Stamp [s]','Field Status','Moment (m) Status']
-                break
-            elif skip_3900_from in str(line):
+            if skip_from in str(line):
                 skiprows=i+2
-                coding='ISO-8859-15'
-                names=['field','remanance']
                 break
             else:
                 skiprows=None
-                coding='UTF-8'
-                names=['field','remanance']
-    #print('skiprows= ',skiprows)
     skiprows = skiprows if isinstance(skiprows,int) else 1
-    rawDf = pd.read_csv(filePath, delimiter=',', names=names,
-                        skiprows=skiprows, skipfooter=1,engine='python',
-                        encoding=coding)
-    rawDf = rawDf.astype({'field':float,'remanance':float})
+    rawDf = pd.read_csv(filePath, sep='\s+', delimiter=',', names=['field','remanance'],
+                        dtype=np.float64, skiprows=skiprows, skipfooter=1,engine='python')
     rawDf = rawDf[(rawDf['field']>0)]
     rawDf = rawDf.sort_values(by=['field'])
     rawDf['field'] = rawDf['field']*10**3 # mT to # T
@@ -167,10 +151,9 @@ class dataFit():
     def loggausfit(self):
         self.fitDf['IRM_norm'] = self.fitDf['remanance']/self.fitDf['remanance'].max()
         xstd,distance,means,covras,weights,yfits = [],[],[],[],[],[]
-        for i in range(20):
+        for i in range(10):
             data = self.rand_data()
-            for j in range(10):
-                #for f in np.arange(0):#(self.fitNumber,self.fitNumber+0):
+            for j in range(20):
                 gmm = GMM(self.fitNumber, covariance_type='full')
                 model = gmm.fit(data)
                 xstd.append(np.std(model.means_))
@@ -190,65 +173,25 @@ class dataFit():
                 distance.append(1 - spatial.distance.cosine(pdf_norm,self.fitDf['IRM_norm']))
                 yfits.append(pdf_individual)
             del data
-        self.df_rawResults = pd.DataFrame({'xstd':xstd, 'distance':distance, 'means':means,
+        df = pd.DataFrame({'xstd':xstd, 'distance':distance, 'means':means,
                            'covras':covras, 'yfits':yfits, 'weights':weights})
-        self.df_rawResults['cov_max'] = [np.min(i) for i in self.df_rawResults['covras']]
-        self.df_rawResults = self.df_rawResults.sort_values(by=['distance','cov_max','xstd'], ascending=[True,True,False])
-        pdf_best = self.df_rawResults['yfits'].iloc[0]
+        df['cov_max'] = [np.min(i) for i in df['covras']]
+        df = df.sort_values(by=['distance','cov_max','xstd'], ascending=[False,True,False])
+        pdf_best = df['yfits'].iloc[0]
         #print(pdf_best)
         #self.means = df['means'].iloc[0]
         #self.covra = df['covras'].iloc[0]#sigma**2
         #self.weights = df['weights'].iloc[0]
         #print(list(df['weights'].iloc[0]),list(df['covras'].iloc[0].flatten()),list(df['means'].iloc[0].flatten()))
         #=======================sort by mean values
-        p = np.array([list(self.df_rawResults['means'].iloc[0].flatten()),
-                      list(self.df_rawResults['covras'].iloc[0].flatten()),
-                      list(self.df_rawResults['weights'].iloc[0])])
+        p = np.array([list(df['means'].iloc[0].flatten()),
+                      list(df['covras'].iloc[0].flatten()),
+                      list(df['weights'].iloc[0])])
         #print(p)
         #print(p[:,p[0,:].argsort()])
-
-        #self.means,self.covra,self.weights = p[:,p[0,:].argsort()]
-        #pdf_best = pdf_best[:,p[0,:].argsort()]
-        #self.pdf_best = pdf_best/np.max(np.sum(pdf_best,axis=1))
-        self.pdf_best,self.means,self.covra,self.weights = self.iterate_mean()
-
-    def iterate_mean(self):
-        numbers = self.fitNumber
-        ycomponents = []
-        xmeans = []
-        covras = []
-        weightss = []
-        for i in np.arange(numbers):
-            #t = tuple()
-            t = (i,[])
-            ycomponents.append(t)
-            #xmeans.append(t)
-            #covras.append(t)
-            #weightss.append(t)
-        for index,row in self.df_rawResults.iterrows():
-        #for line,line2 in zip(self.df_rawResults['means'],self.df_rawResults['yfits']):
-            means = row['means']
-            yfits = row['yfits']
-            means,yfits = zip(*sorted(zip(means,yfits.T)))
-            means,covs = zip(*sorted(zip(means,row['covras'])))
-            means,weigs = zip(*sorted(zip(means,row['weights'])))
-            for i in np.arange(numbers):
-                ycomponents[i][1].append(yfits[i]/np.max(np.sum(yfits,axis=0)))
-            xmeans.append(means)
-            covras.append(covs)
-            weightss.append(weigs)
-        fit_means = []
-        self.ycomponents = ycomponents
-        for i,line in enumerate(ycomponents):
-            fit_mean = np.mean(line[1],axis=0)
-            fit_means.append(fit_mean)
-            std = np.std(line[1],axis=0)
-        xmean,covra,wieg = [],[],[]
-        for t in np.arange(numbers):
-            xmean.append(np.mean([i[t] for i in xmeans],axis=0))
-            covra.append(np.mean([i[t] for i in covras],axis=0))
-            wieg.append(np.mean([i[t] for i in weightss],axis=0))
-        return np.array(fit_means).T,xmean,covra,wieg
+        self.means,self.covra,self.weights = p[:,p[0,:].argsort()]
+        pdf_best = pdf_best[:,p[0,:].argsort()]
+        self.pdf_best = pdf_best/np.max(np.sum(pdf_best,axis=1))
 
     def fitParams(self):
         params = Parameters()
@@ -309,14 +252,14 @@ class reFit(MyMplCanvas):
         for i in np.arange(self.fitNumber):
             sequence = 'g'+str(i+1)+'_'
             center_value = params[sequence+'center'].value
-            params[sequence+'center'].set(center_value, min=center_value-0.1,
-                                          max=center_value+0.1)
+            params[sequence+'center'].set(center_value, min=center_value-0.05,
+                                          max=center_value+0.05)
             sigma_value = params[sequence+'sigma'].value
-            params[sequence+'sigma'].set(sigma_value, min=sigma_value-0.1,
-                                         max=sigma_value+0.1)
+            params[sequence+'sigma'].set(sigma_value, min=sigma_value-0.05,
+                                         max=sigma_value+0.05)
             ampl_value = params[sequence+'amplitude'].value
-            params[sequence+'amplitude'].set(ampl_value, min=ampl_value-1,
-                                             max=ampl_value+1)
+            params[sequence+'amplitude'].set(ampl_value, min=ampl_value-0.5,
+                                             max=ampl_value+0.5)
         result = minimize(lmLeast(self.fitNumber).residuals, params, args=(self.fitResult.fitDf['field'], self.fitResult.fitDf['IRM_norm']),
                           method='cg')
         self.params = result.params
@@ -329,10 +272,9 @@ class reFit(MyMplCanvas):
                    xraw=self.fitResult.rawDf['field_log'],
                    yfit=np.array(pdf_adjust).transpose(),
                    yraw=self.fitResult.rawDf['rem_grad_norm'],
-                   params=self.params,
-                   ycomponents=self.fitResult.ycomponents)
+                   params=self.params)
 
-def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None):
+def fit_plots(ax,xfit,xraw,yfit,yraw,params=None):
     '''
     #====================================================================
     plot the fitted results for data fit and refit
@@ -340,28 +282,6 @@ def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None):
     '''
     global _yfits_
     _yfits_ = yfit
-    colors = [u'#1f77b4', u'#ff7f0e', u'#2ca02c', u'#d62728', u'#9467bd', u'#8c564b', u'#e377c2', u'#7f7f7f', u'#bcbd22', u'#17becf']
-    if ycomponents !=None:
-        for i,line in enumerate(ycomponents):
-            mean = np.mean(line[1],axis=0)
-            std = np.std(line[1],axis=0)
-            x = xfit
-            y1 = mean-std
-            y2 = mean+std
-
-            cm1 = LinearSegmentedColormap.from_list('Temperature Map', ['white',colors[i], 'white'])
-            polygon = plt.fill_between(x, y2, y1, lw=1, color='none')
-            verts = np.vstack([p.vertices for p in polygon.get_paths()])
-            ymin, ymax = verts[:, 1].min(), verts[:, 1].max()
-            gradient = plt.imshow(np.array([np.interp(np.linspace(ymin, ymax, 100), [y1i, y2i], np.arange(2))
-                                            for y1i, y2i in zip(gaussian_filter(y1, 0, mode='nearest'),
-                                                                gaussian_filter(y2, 0, mode='nearest'))]).T,
-                                  cmap=cm1, aspect='auto', origin='lower', extent=[x.min(), x.max(), ymin, ymax],alpha=0.8)
-            gradient.set_clip_path(polygon.get_paths()[0], transform=plt.gca().transData)
-
-            for l in line[1]:
-                plt.plot(xfit,l,lw=0.1,alpha=0.5,color='grey')
-
     if params != None:
         for i in np.arange(yfit.shape[1]):
             y = yfit[:,i]
@@ -373,11 +293,11 @@ def fit_plots(ax,xfit,xraw,yfit,yraw,params=None,ycomponents=None):
             ax.plot(xfit,y,label=label)
     else:
         ax.plot(xfit, yfit)
-    ax.plot(xfit, np.sum(yfit,axis=1),color='grey')
-    ax.scatter(xraw, yraw,color='k',facecolor='none',alpha=0.5)
+    ax.plot(xfit, np.sum(yfit,axis=1))
+    ax.scatter(xraw, yraw)
     ax.set_xlabel('Field (log10(mT))')
     ax.set_ylabel('IRM normalization')
-    ax.legend(frameon=False)
+    ax.legend()
 
 class FitMplCanvas(MyMplCanvas):
     '''
@@ -400,8 +320,7 @@ class FitMplCanvas(MyMplCanvas):
                   xraw=self.fitResult.rawDf['field_log'],
                   yfit=self.fitResult.pdf_best,
                   yraw=self.fitResult.rawDf['rem_grad_norm'],
-                  params=self.fitResult.params,
-                  ycomponents=self.fitResult.ycomponents)
+                  params=self.fitResult.params)
 
 
 class adjustFit(MyMplCanvas):
@@ -426,8 +345,7 @@ class adjustFit(MyMplCanvas):
                    xfit=self.fitResult.fitDf['field'],
                    xraw=self.fitResult.rawDf['field_log'],
                    yfit=np.array(pdf_adjust).transpose(),
-                   yraw=self.fitResult.rawDf['rem_grad_norm'],
-                   ycomponents=self.fitResult.ycomponents)
+                   yraw=self.fitResult.rawDf['rem_grad_norm'])
 
 class rawPlot(MyMplCanvas):
     '''
@@ -617,7 +535,7 @@ class Mainwindow(QMainWindow):
         self.grid.addWidget(self.plot,1,3,5,2)
     def SaveFigButton(self):
         if self.plot:
-            self.plot.fig.savefig(os.path.splitext(self.filePath)[0]+'.png',dpi=300,bbox_inches='tight')
+            self.plot.fig.savefig(os.path.splitext(self.filePath)[0]+'.png')
         else:
             pass
     def SaveDataButton(self):
