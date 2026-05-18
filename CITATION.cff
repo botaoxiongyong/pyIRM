@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use pyIRM, please cite it as below."
+title: "pyIRM: A Python package for isothermal remanent magnetization acquisition curve decomposition"
+authors:
+  - family-names: Liu
+    given-names: Jiabo
+    orcid: "https://orcid.org/XXXX-XXXX-XXXX-XXXX"
+version: 1.0.0
+date-released: 2026-05-18
+license: MIT
+repository-code: "https://github.com/botaoxiongyong/pyIRM"
+doi: "10.5281/zenodo.20265129"
