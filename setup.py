@@ -4,7 +4,7 @@ NAME = "pyIRM"
 
 setup(
     name=NAME,
-    version='1.0.0',
+    version='v1.0.0',
     url='https://github.com/botaoxiongyong/pyIRM',
     author='Liu Jiabo',
     author_email='kabol.liu@gmail.com',
