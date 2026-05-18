@@ -32,6 +32,12 @@ Python3 version: 3.9
 # Jupyter notebook
         $ check the example: .../pyIRM/pyIRM.ipynb
 
+# Citation
+
+If you use `pyIRM` in your research, please cite the archived software release:
+
+Liu, J. (2026). *pyIRM: A Python package for isothermal remanent magnetization acquisition curve decomposition* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.20265129
+
 ps:
 
 if you save the fig and data, they will be save in the path where you open your measured IRM data.
